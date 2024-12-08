@@ -22,6 +22,9 @@ const (
 
 var db *sql.DB
 
+// -----------------------------------
+// Structs untuk Login/Register/User
+// -----------------------------------
 type LoginRequestBody struct {
 	NoHP string `json:"NoHP"`
 	Pwd  string `json:"Pwd"`
@@ -101,7 +104,9 @@ type UpdateUserResponseBody struct {
 	Status  bool   `json:"status"`
 }
 
-// Struct untuk Testimoni
+// ------------------------------
+// Structs untuk Testimoni
+// ------------------------------
 type Testimoni struct {
 	IdTrPemesanan string `json:"idTrPemesanan"`
 	Tgl           string `json:"tgl"`
@@ -109,7 +114,9 @@ type Testimoni struct {
 	Rating        int    `json:"rating"`
 }
 
-// Struct untuk Diskon, Voucher, Promo
+// ------------------------------
+// Structs untuk Diskon & Voucher
+// ------------------------------
 type VoucherItem struct {
 	Kode            string  `json:"kode"`
 	Potongan        float64 `json:"potongan"`
@@ -127,8 +134,8 @@ type PromoItem struct {
 }
 
 type GetDiskonResponse struct {
-	Status  bool         `json:"status"`
-	Message string       `json:"message"`
+	Status  bool          `json:"status"`
+	Message string        `json:"message"`
 	Voucher []VoucherItem `json:"voucher"`
 	Promo   []PromoItem   `json:"promo"`
 }
@@ -144,50 +151,16 @@ type BuyVoucherResponse struct {
 	Message string `json:"message"`
 }
 
-func main() {
-	pgConnStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-
-	conn, err := sql.Open("postgres", pgConnStr)
-	if err != nil {
-		log.Fatalf("Error opening database connection: %v", err)
-	}
-	db = conn
-	defer db.Close()
-
-	err = db.Ping()
-	if err != nil {
-		log.Fatalf("Error connecting to the database: %v", err)
-	}
-	fmt.Println("Connected to the PostgreSQL database")
-
-	// Endpoint existing
-	http.HandleFunc("/login", corsMiddleware(checkLogin))
-	http.HandleFunc("/register", corsMiddleware(register))
-	http.HandleFunc("/getUser", corsMiddleware(getUser))
-	http.HandleFunc("/updateUser", corsMiddleware(updateUser))
-
-	// Endpoint baru untuk testimoni
-	http.HandleFunc("/createTestimoni", corsMiddleware(createTestimoniHandler))
-	http.HandleFunc("/getTestimoni", corsMiddleware(getTestimoniHandler))
-	http.HandleFunc("/deleteTestimoni", corsMiddleware(deleteTestimoniHandler))
-
-	// Endpoint untuk diskon & pembelian voucher
-	http.HandleFunc("/getDiskon", corsMiddleware(getDiskonHandler))
-	http.HandleFunc("/buyVoucher", corsMiddleware(buyVoucherHandler))
-
-	fmt.Println("Server is listening on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
+// ------------------------------
+// Middleware CORS
+// ------------------------------
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// Handle preflight requests
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -197,9 +170,9 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// ------------------------------------------------------
-// Bagian Testimoni
-// ------------------------------------------------------
+// -------------------------------------
+// Fungsi Helper Testimoni
+// -------------------------------------
 func IsPesananSelesai(db *sql.DB, pemesananID string) (bool, error) {
 	query := `
         SELECT COUNT(*) 
@@ -306,10 +279,10 @@ func DeleteTestimoni(db *sql.DB, userID, pemesananID, tgl string) error {
 	return nil
 }
 
-// Handler create testimoni
+// Handler Testimoni
 func createTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -323,7 +296,7 @@ func createTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	var req createTestimoniReq
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -338,7 +311,7 @@ func createTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 
 func getTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 	subkategoriID := r.URL.Query().Get("subkategori_id")
@@ -358,7 +331,7 @@ func getTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 
 func deleteTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -371,7 +344,7 @@ func deleteTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	var req deleteTestimoniReq
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -384,16 +357,15 @@ func deleteTestimoniHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Testimoni berhasil dihapus"))
 }
 
-// ------------------------------------------------------
-// Bagian Diskon & Voucher
-// ------------------------------------------------------
+// --------------------------------------
+// Diskon & Voucher Handlers
+// --------------------------------------
 func getDiskonHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Ambil data voucher
 	voucherQuery := `
     SELECT d.Kode, d.Potongan, d.MinTrPemesanan, v.JmlHariBerlaku, v.KuotaPenggunaan, v.Harga
     FROM VOUCHER v
@@ -418,7 +390,6 @@ func getDiskonHandler(w http.ResponseWriter, r *http.Request) {
 		voucherList = append(voucherList, v)
 	}
 
-	// Ambil data promo
 	promoQuery := `
     SELECT d.Kode, d.Potongan, d.MinTrPemesanan, p.TglAkhirBerlaku
     FROM PROMO p
@@ -454,18 +425,17 @@ func getDiskonHandler(w http.ResponseWriter, r *http.Request) {
 
 func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var body BuyVoucherRequest
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Ambil data voucher
 	var potongan float64
 	var minTr int
 	var jmlHari int
@@ -481,7 +451,7 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		response := BuyVoucherResponse{
 			Status:  false,
-			Message: "Voucher tidak ditemukan",
+			Message: "voucher tidak ditemukan",
 		}
 		json.NewEncoder(w).Encode(response)
 		return
@@ -494,14 +464,13 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Asumsi Id MyPay sudah diketahui (cek dari data di DB Anda)
+	// Id MyPay, sesuaikan dengan data di DB Anda
 	myPayId := "e2ae7f92-eefb-47a7-aa1b-c7d157ab94d7"
 
-	var tglAwal = time.Now()
-	var tglAkhir = tglAwal.AddDate(0, 0, jmlHari)
+	tglAwal := time.Now()
+	tglAkhir := tglAwal.AddDate(0, 0, jmlHari)
 
 	if body.MetodeBayarId != myPayId {
-		// Metode bayar bukan MyPay, langsung berhasil
 		_, err := db.Exec(`
             INSERT INTO TR_PEMBELIAN_VOUCHER (Id, TglAwal, TglAkhir, TelahDigunakan, IdPelanggan, IdVoucher, IdMetodeBayar)
             VALUES ($1, $2, $3, 0, $4, $5, $6)`,
@@ -523,13 +492,13 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Jika metode bayar adalah MyPay, cek saldo
+	// Jika metode bayar MyPay, cek saldo
 	var saldo float64
 	err = db.QueryRow(`SELECT SaldoMyPay FROM "user" WHERE Id = $1`, body.UserID).Scan(&saldo)
 	if err == sql.ErrNoRows {
 		response := BuyVoucherResponse{
 			Status:  false,
-			Message: "User tidak ditemukan",
+			Message: "user tidak ditemukan",
 		}
 		json.NewEncoder(w).Encode(response)
 		return
@@ -543,16 +512,14 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if saldo < harga {
-		// Saldo tidak cukup
 		response := BuyVoucherResponse{
 			Status:  false,
-			Message: "Saldo MyPay tidak cukup",
+			Message: "saldo MyPay tidak cukup",
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Saldo cukup, update saldo user
 	newSaldo := saldo - harga
 	_, err = db.Exec(`UPDATE "user" SET SaldoMyPay = $1 WHERE Id = $2`, newSaldo, body.UserID)
 	if err != nil {
@@ -564,7 +531,6 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert ke TR_PEMBELIAN_VOUCHER
 	_, err = db.Exec(`
         INSERT INTO TR_PEMBELIAN_VOUCHER (Id, TglAwal, TglAkhir, TelahDigunakan, IdPelanggan, IdVoucher, IdMetodeBayar)
         VALUES ($1, $2, $3, 0, $4, $5, $6)`,
@@ -586,413 +552,149 @@ func buyVoucherHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// ------------------------------------------------------
-// Bagian User (Login, Register, GetUser, UpdateUser)
-// ------------------------------------------------------
-func register(w http.ResponseWriter, r *http.Request) {
+// -----------------------------------------
+// Endpoint Homepage, Subkategori, Pesan
+// -----------------------------------------
+func getHomepage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT k.id, k.namakategori, s.id, s.namasubkategori
+		FROM kategori_jasa k
+		LEFT JOIN subkategori_jasa s ON k.id = s.kategorijasaid`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var data []map[string]interface{}
+	for rows.Next() {
+		var kategoriID, subkategoriID string
+		var kategoriNama, subkategoriNama string
+		if err := rows.Scan(&kategoriID, &kategoriNama, &subkategoriID, &subkategoriNama); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data = append(data, map[string]interface{}{
+			"kategori_id":      kategoriID,
+			"kategori_nama":    kategoriNama,
+			"subkategori_id":   subkategoriID,
+			"subkategori_nama": subkategoriNama,
+		})
+	}
+	json.NewEncoder(w).Encode(data)
+}
+
+func getSubkategori(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	rows, err := db.Query(`
+		SELECT s.id, s.namasubkategori, s.deskripsi, sesi.sesi, sesi.harga
+		FROM subkategori_jasa s
+		LEFT JOIN sesi_layanan sesi ON s.id = sesi.subkategoriid
+		WHERE s.id = $1`, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var data []map[string]interface{}
+	for rows.Next() {
+		var subID, sesi int
+		var subNama, subDeskripsi string
+		var harga float64
+		if err := rows.Scan(&subID, &subNama, &subDeskripsi, &sesi, &harga); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data = append(data, map[string]interface{}{
+			"subkategori_id":        subID,
+			"subkategori_nama":      subNama,
+			"subkategori_deskripsi": subDeskripsi,
+			"sesi":                  sesi,
+			"harga":                 harga,
+		})
+	}
+	json.NewEncoder(w).Encode(data)
+}
+
+func createPesanan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var body RegisterRequestBody
-	err := json.NewDecoder(r.Body).Decode(&body)
+	var body struct {
+		UserID           string  `json:"user_id"`
+		SesiID           int     `json:"sesi_id"`
+		Tanggal          string  `json:"tanggal"`
+		Diskon           float64 `json:"diskon"`
+		MetodePembayaran string  `json:"metode_pembayaran"`
+		Total            float64 `json:"total"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec(`
+		INSERT INTO pesanan (id_user, id_sesi, tanggal, diskon, metode_pembayaran, total, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'Menunggu Pembayaran')`,
+		body.UserID, body.SesiID, body.Tanggal, body.Diskon, body.MetodePembayaran, body.Total)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var userId string
-	err = db.QueryRow(`INSERT INTO "user" VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING Id`,
-		uuid.New(), body.Nama, body.JenisKelamin, body.NoHP, body.Pwd, body.TglLahir, body.Alamat, 0.0).Scan(&userId)
-	if err == sql.ErrNoRows {
-		response := &RegisterResponseBody{
-			Status:  false,
-			Message: "Invalid Credential on user",
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	} else if err != nil {
-		response := &RegisterResponseBody{
-			Status:  false,
-			Message: err.Error(),
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if body.Role == 0 {
-		err = db.QueryRow(`INSERT INTO PELANGGAN VALUES ($1, $2) RETURNING Id`, userId, "Basic").Scan(&userId)
-		if err == sql.ErrNoRows {
-			response := &RegisterResponseBody{
-				Status:  false,
-				Message: "Invalid Credential on pelanggan",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		} else if err != nil {
-			response := &RegisterResponseBody{
-				Status:  false,
-				Message: err.Error(),
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-	} else {
-		err = db.QueryRow(`INSERT INTO PEKERJA VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING Id`,
-			userId,
-			body.NamaBank,
-			body.NomorRekening,
-			body.NPWP,
-			body.LinkFoto,
-			body.Rating,
-			body.JmlPsnananSelesai).Scan(&userId)
-
-		if err == sql.ErrNoRows {
-			response := &RegisterResponseBody{
-				Status:  false,
-				Message: "Invalid Credential on pekerja",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		} else if err != nil {
-			response := &RegisterResponseBody{
-				Status:  false,
-				Message: err.Error(),
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-	}
-
-	response := &RegisterResponseBody{
-		Status:  true,
-		Message: "User berhasil dibuat",
-	}
-
-	json.NewEncoder(w).Encode(response)
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Order created"))
 }
 
-func updateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
+func main() {
+	pgConnStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 
-	var body UpdateUserRequestBody
-	err := json.NewDecoder(r.Body).Decode(&body)
+	var err error
+	db, err = sql.Open("postgres", pgConnStr)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		log.Fatalf("Error opening database connection: %v", err)
 	}
+	defer db.Close()
 
-	var oldValue UpdateUserRequestBody
-	err = db.QueryRow(`SELECT Nama, JenisKelamin, NoHP, TglLahir, Alamat FROM "user" WHERE Id = $1`, body.User).
-		Scan(
-			&oldValue.Nama,
-			&oldValue.JenisKelamin,
-			&oldValue.NoHP,
-			&oldValue.TglLahir,
-			&oldValue.Alamat)
-
-	if err == sql.ErrNoRows {
-		response := &UpdateUserResponseBody{
-			Status:  false,
-			Message: "Invalid Credential on user",
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	} else if err != nil {
-		response := &UpdateUserResponseBody{
-			Status:  false,
-			Message: err.Error(),
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	var current_user_id string
-	err = db.QueryRow(`UPDATE "user" SET Nama = $1, JenisKelamin = $2, TglLahir = $3, Alamat = $4 WHERE Id = $5 Returning Id`,
-		oldValue.Nama,
-		oldValue.JenisKelamin,
-		oldValue.TglLahir,
-		oldValue.Alamat,
-		body.User).Scan(&current_user_id)
-
-	if body.NoHP != oldValue.NoHP {
-		err = db.QueryRow(`UPDATE "user" SET NoHP = $1 WHERE Id = $2 Returning Id`,
-			body.NoHP,
-			body.User).Scan(&current_user_id)
-	}
-
-	if err == sql.ErrNoRows {
-		response := &UpdateUserResponseBody{
-			Status:  false,
-			Message: "Invalid update on user",
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	} else if err != nil {
-		response := &UpdateUserResponseBody{
-			Status:  false,
-			Message: err.Error() + " User",
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if body.Role == 1 {
-		err = db.QueryRow(`SELECT NPWP, LinkFoto, NamaBank, NomorRekening FROM PEKERJA WHERE Id = $1`, body.User).
-			Scan(
-				&oldValue.NPWP,
-				&oldValue.LinkFoto,
-				&oldValue.NamaBank,
-				&oldValue.NomorRekening)
-		if err == sql.ErrNoRows {
-			response := &UpdateUserResponseBody{
-				Status:  false,
-				Message: "Invalid Credential on pekerja",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		} else if err != nil {
-			response := &UpdateUserResponseBody{
-				Status:  false,
-				Message: err.Error() + " Update",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-
-		err = db.QueryRow(`UPDATE PEKERJA SET 
-        NPWP = $1, 
-        LinkFoto = $2 
-        WHERE Id = $3 Returning Id`,
-			oldValue.NPWP,
-			oldValue.LinkFoto,
-			body.User).Scan(&current_user_id)
-		if err == sql.ErrNoRows {
-			response := &UpdateUserResponseBody{
-				Status:  false,
-				Message: "Invalid Credential on pekerja",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		} else if err != nil {
-			response := &UpdateUserResponseBody{
-				Status:  false,
-				Message: err.Error() + " Pekerja",
-			}
-
-			json.NewEncoder(w).Encode(response)
-			return
-		}
-
-		if body.NomorRekening != oldValue.NomorRekening && body.NamaBank != oldValue.NamaBank {
-			err = db.QueryRow(`UPDATE PEKERJA SET 
-			NamaBank = $1, 
-			NomorRekening = $2 
-			WHERE Id = $3 Returning Id`,
-				body.NamaBank,
-				body.NomorRekening,
-				body.User).Scan(&current_user_id)
-			if err == sql.ErrNoRows {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: "Invalid Credential on pekerja",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			} else if err != nil {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: err.Error() + " Update",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			}
-		} else if body.NamaBank != oldValue.NamaBank {
-			err = db.QueryRow(`UPDATE PEKERJA SET 
-			NamaBank = $1
-			WHERE Id = $2 Returning Id`,
-				body.NamaBank,
-				body.User).Scan(&current_user_id)
-			if err == sql.ErrNoRows {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: "Invalid Credential on pekerja",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			} else if err != nil {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: err.Error() + " Bank Name",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			}
-		} else if body.NomorRekening != oldValue.NomorRekening {
-			err = db.QueryRow(`UPDATE PEKERJA SET 
-			NomorRekening = $1
-			WHERE Id = $2 Returning Id`,
-				body.NomorRekening,
-				body.User).Scan(&current_user_id)
-			if err == sql.ErrNoRows {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: "Invalid Credential on pekerja",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			} else if err != nil {
-				response := &UpdateUserResponseBody{
-					Status:  false,
-					Message: err.Error() + " Rekening",
-				}
-
-				json.NewEncoder(w).Encode(response)
-				return
-			}
-		}
-
-	}
-
-	response := &RegisterResponseBody{
-		Status:  true,
-		Message: fmt.Sprintf("User dengan id %s berhasil di update", current_user_id),
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func checkLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var body LoginRequestBody
-	err := json.NewDecoder(r.Body).Decode(&body)
+	err = db.Ping()
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		log.Fatalf("Error connecting to the database: %v", err)
 	}
+	fmt.Println("Connected to the PostgreSQL database")
 
-	var userID string
-	var name string
-	var role int
+	// Endpoint user
+	http.HandleFunc("/login", corsMiddleware(checkLogin))
+	http.HandleFunc("/register", corsMiddleware(registerHandler))
+	http.HandleFunc("/getUser", corsMiddleware(getUser))
+	http.HandleFunc("/updateUser", corsMiddleware(updateUser))
 
-	err = db.QueryRow(`SELECT Id, Nama FROM "user" WHERE NoHP = $1 AND Pwd = $2`, body.NoHP, body.Pwd).Scan(&userID, &name)
-	if err == sql.ErrNoRows {
-		response := &LoginResponseBody{
-			Status:  false,
-			UserId:  userID,
-			Name:    name,
-			Role:    role,
-			Message: "Invalid Credential",
-		}
+	// Endpoint testimoni
+	http.HandleFunc("/createTestimoni", corsMiddleware(createTestimoniHandler))
+	http.HandleFunc("/getTestimoni", corsMiddleware(getTestimoniHandler))
+	http.HandleFunc("/deleteTestimoni", corsMiddleware(deleteTestimoniHandler))
 
-		json.NewEncoder(w).Encode(response)
-		return
-	} else if err != nil {
-		response := &LoginResponseBody{
-			Status:  false,
-			UserId:  userID,
-			Name:    name,
-			Role:    role,
-			Message: err.Error(),
-		}
+	// Endpoint diskon & voucher
+	http.HandleFunc("/getDiskon", corsMiddleware(getDiskonHandler))
+	http.HandleFunc("/buyVoucher", corsMiddleware(buyVoucherHandler))
 
-		json.NewEncoder(w).Encode(response)
-		return
-	}
+	// Endpoint homepage, subkategori, pesan
+	http.HandleFunc("/homepage", corsMiddleware(getHomepage))
+	http.HandleFunc("/subkategori", corsMiddleware(getSubkategori))
+	http.HandleFunc("/pesan", corsMiddleware(createPesanan))
 
-	db.QueryRow(`SELECT 1 FROM PELANGGAN WHERE Id = $1`, userID).Scan(&role)
-	response := &LoginResponseBody{
-		Status:  true,
-		UserId:  userID,
-		Name:    name,
-		Role:    role,
-		Message: "Success",
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
-func getUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var body GetUserRequestBody
-	err := json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	var response GetUserResponseBody
-	err = db.QueryRow(`SELECT Nama, JenisKelamin, NoHP, Pwd, TglLahir, Alamat, SaldoMyPay FROM "user" WHERE Id = $1`, body.User).Scan(
-		&response.Nama,
-		&response.JenisKelamin,
-		&response.NoHP,
-		&response.Pwd,
-		&response.TglLahir,
-		&response.Alamat,
-		&response.SaldoMyPay)
-
-	if err == sql.ErrNoRows {
-		response := &GetUserResponseBody{
-			Status:  false,
-			Message: "Invalid Credential",
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	} else if err != nil {
-		response := &GetUserResponseBody{
-			Status:  false,
-			Message: err.Error(),
-		}
-
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	response.Status = true
-	response.Message = "Berhasil mendapatkan data"
-
-	if body.Role == 0 {
-		db.QueryRow(`SELECT Level FROM PELANGGAN WHERE Id = $1`, body.User).Scan(&response.Level)
-		json.NewEncoder(w).Encode(response)
-	} else {
-		db.QueryRow(`SELECT NamaBank, NomorRekening, NPWP, LinkFoto, Rating, JmlPsnananSelesai FROM PEKERJA WHERE Id = $1`, body.User).Scan(
-			&response.NamaBank,
-			&response.NomorRekening,
-			&response.NPWP,
-			&response.LinkFoto,
-			&response.Rating,
-			&response.JmlPsnananSelesai)
-		json.NewEncoder(w).Encode(response)
-	}
+	fmt.Println("Server is listening on port 8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
