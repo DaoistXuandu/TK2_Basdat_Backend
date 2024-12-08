@@ -235,7 +235,7 @@ func CreateTestimoni(db *sql.DB, userID string, pemesananID string, teks string,
 		return err
 	}
 	if !isPemesan {
-		return fmt.Errorf("Anda bukan pelanggan yang memesan jasa ini.")
+		return fmt.Errorf("anda bukan pelanggan yang memesan jasa ini")
 	}
 
 	selesai, err := IsPesananSelesai(db, pemesananID)
@@ -243,7 +243,7 @@ func CreateTestimoni(db *sql.DB, userID string, pemesananID string, teks string,
 		return err
 	}
 	if !selesai {
-		return fmt.Errorf("Pesanan belum selesai, tidak dapat memberikan testimoni.")
+		return fmt.Errorf("pesanan belum selesai, tidak dapat memberikan testimoni")
 	}
 
 	tgl := time.Now().Format("2006-01-02")
@@ -291,7 +291,7 @@ func DeleteTestimoni(db *sql.DB, userID, pemesananID, tgl string) error {
 		return err
 	}
 	if !isPemesan {
-		return fmt.Errorf("Anda bukan pelanggan yang memesan jasa ini, tidak dapat menghapus testimoni.")
+		return fmt.Errorf("anda bukan pelanggan yang memesan jasa ini, tidak dapat menghapus testimoni")
 	}
 
 	query := `
