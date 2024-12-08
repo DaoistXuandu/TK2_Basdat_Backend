@@ -996,3 +996,123 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 	}
 }
+func main() {
+	// Connect to the database
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+	var err error
+	db, err = sql.Open("postgres", psqlInfo)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer db.Close()
+
+	fmt.Println("Successfully connected!")
+
+	// Define routes
+	http.HandleFunc("/homepage", getHomepage)
+	http.HandleFunc("/subkategori", getSubkategori)
+	http.HandleFunc("/pesan", createPesanan)
+
+	log.Println("Server started at :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+// Get Homepage (all categories and subcategories)
+func getHomepage(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query(`
+		SELECT k.id, k.nama, s.id, s.nama
+		FROM kategori_jasa k
+		LEFT JOIN subkategori_jasa s ON k.id = s.id_kategori`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var data []map[string]interface{}
+	for rows.Next() {
+		var kategoriID, subkategoriID int
+		var kategoriNama, subkategoriNama string
+		if err := rows.Scan(&kategoriID, &kategoriNama, &subkategoriID, &subkategoriNama); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data = append(data, map[string]interface{}{
+			"kategori_id":   kategoriID,
+			"kategori_nama": kategoriNama,
+			"subkategori_id": subkategoriID,
+			"subkategori_nama": subkategoriNama,
+		})
+	}
+	json.NewEncoder(w).Encode(data)
+}
+
+// Get Subkategori and Sessions
+func getSubkategori(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	rows, err := db.Query(`
+		SELECT s.id, s.nama, s.deskripsi, sesi.id, sesi.nama_sesi, sesi.harga
+		FROM subkategori_jasa s
+		LEFT JOIN sesi_layanan sesi ON s.id = sesi.id_subkategori
+		WHERE s.id = $1`, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var data []map[string]interface{}
+	for rows.Next() {
+		var subID, sesiID int
+		var subNama, subDeskripsi, sesiNama string
+		var harga float64
+		if err := rows.Scan(&subID, &subNama, &subDeskripsi, &sesiID, &sesiNama, &harga); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data = append(data, map[string]interface{}{
+			"subkategori_id": subID,
+			"subkategori_nama": subNama,
+			"subkategori_deskripsi": subDeskripsi,
+			"sesi_id": sesiID,
+			"sesi_nama": sesiNama,
+			"harga": harga,
+		})
+	}
+	json.NewEncoder(w).Encode(data)
+}
+
+// Create Order
+func createPesanan(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var body struct {
+		UserID           string  `json:"user_id"`
+		SesiID           int     `json:"sesi_id"`
+		Tanggal          string  `json:"tanggal"`
+		Diskon           float64 `json:"diskon"`
+		MetodePembayaran string  `json:"metode_pembayaran"`
+		Total            float64 `json:"total"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec(`
+		INSERT INTO pesanan (id_user, id_sesi, tanggal, diskon, metode_pembayaran, total, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'Menunggu Pembayaran')`,
+		body.UserID, body.SesiID, body.Tanggal, body.Diskon, body.MetodePembayaran, body.Total)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Order created"))
+}
